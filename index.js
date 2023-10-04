@@ -34,9 +34,42 @@ async function run() {
     // Send a ping to confirm a successful connection
 
     app.get('/all-rooms', async (req, res) => {
-        const result = await AllRoomsCollection.find().toArray();
-        res.send(result);
+      const result = await AllRoomsCollection.find().toArray();
+      res.send(result);
     })
+
+    app.get('/search', async (req, res) => {
+      const { location, dateRange, guests, infants, pets } = req.query;
+      console.log(location, dateRange, guests, infants, pets);
+    
+      const startDate = dateRange.split(' - ')[0];
+      const endDate = dateRange.split(' - ')[1];
+      const query = {};
+    
+      if (location) {
+        query.location = location;
+      }
+    
+      if (dateRange) {
+        query.dateRange = { $gte: startDate, $lte: endDate };
+      }
+    
+      if (guests) {
+        query['holdingCapacity.guests'] = { $gte: parseInt(guests) };
+      }
+    
+      if (infants) {
+        query['holdingCapacity.infants'] = { $gte: parseInt(infants) };
+      }
+    
+      if (pets) {
+        query['holdingCapacity.pets'] = { $gte: parseInt(pets) };
+      }
+        const results = await AllRoomsCollection.find({location: { $regex: location, $options: "i" }||  {dateRange: { $regex: dateRange, $options: "i" }}}).toArray();
+        res.send(results);
+     
+    });
+    
 
 
 
