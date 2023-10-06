@@ -40,7 +40,6 @@ async function run() {
 
     app.get('/search', async (req, res) => {
       const { location, dateRange, guests, infants, pets } = req.query;
-      console.log(location, dateRange, guests, infants, pets);
     
       const startDate = dateRange.split(' - ')[0];
       const endDate = dateRange.split(' - ')[1];
@@ -69,7 +68,63 @@ async function run() {
         res.send(results);
      
     });
+
+    app.get("/filter", async (req, res) => {
+      const {
+        activePlaceType,
+        minValue,
+        maxValue,
+        beds,
+        bathrooms,
+        homeProperty,
+        apartmentProperty,
+        guestHouseProperty,
+      } = req.query;
     
+     
+    
+      const pipeline = [];
+    
+      if (activePlaceType) {
+        pipeline.push({
+          $match: {
+            $or: [
+              { category: activePlaceType },
+              { propertyType: activePlaceType },
+            ],
+          },
+        });
+      }
+      if (minValue && maxValue) {
+        pipeline.push({
+          $match: {
+            price: {
+              $gte: parseFloat(minValue),
+              $lte: parseFloat(maxValue),
+            },
+          },
+        });
+      }
+    
+      if (beds && parseInt(beds) !== 0) {
+        pipeline.push({ $match: { beds: parseInt(beds) } });
+      }
+    
+      if (bathrooms && parseInt(bathrooms) !== 0) {
+        pipeline.push({ $match: { bedrooms: parseInt(bathrooms) } });
+      }
+      if (homeProperty ||apartmentProperty ||guestHouseProperty ) {
+        pipeline.push({ $match:{
+          $or: [
+            { propertyType: homeProperty },
+            { propertyType: apartmentProperty },
+            { propertyType: guestHouseProperty },
+          ],
+        }  });
+      }
+      const filteredData = await AllRoomsCollection.aggregate(pipeline).toArray();
+      res.send(filteredData);
+    });
 
 
 
