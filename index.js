@@ -30,7 +30,7 @@ const AllRoomsCollection = client.db("airbnbDB").collection("rooms");
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
     // Send a ping to confirm a successful connection
 
     app.get('/all-rooms', async (req, res) => {
@@ -40,33 +40,44 @@ async function run() {
 
     app.get('/search', async (req, res) => {
       const { location, dateRange, guests, infants, pets } = req.query;
-    
-      const startDate = dateRange.split(' - ')[0];
-      const endDate = dateRange.split(' - ')[1];
-      const query = {};
-    
+
+      const today = new Date();
+      const options = { year: 'numeric', month: 'short', day: 'numeric' };
+      const formattedDate = today.toLocaleDateString('en-US', options);
+      const formattedDateRange = `${formattedDate} - ${formattedDate}`;
+      const pipeline = [];
+
       if (location) {
-        query.location = location;
+        pipeline.push({
+          $match: { location: location },
+        });
       }
-    
-      if (dateRange) {
-        query.dateRange = { $gte: startDate, $lte: endDate };
+      if (dateRange && dateRange !== formattedDateRange) {
+        console.log("object", dateRange);
+        pipeline.push({
+          $match: {
+            dateRange: dateRange,
+          },
+        });
       }
-    
-      if (guests) {
-        query['holdingCapacity.guests'] = { $gte: parseInt(guests) };
+
+      if (guests !=0 || infants !=0 || pets !=0) {
+        console.log("object guests: " + guests + infants + pets);
+        pipeline.push({
+          $match: {
+            $or: [
+              { "holdingCapacity.guests": guests },
+              { "holdingCapacity.infants": infants },
+              { "holdingCapacity.pets": pets },
+            ],
+          },
+        });
       }
-    
-      if (infants) {
-        query['holdingCapacity.infants'] = { $gte: parseInt(infants) };
-      }
-    
-      if (pets) {
-        query['holdingCapacity.pets'] = { $gte: parseInt(pets) };
-      }
-        const results = await AllRoomsCollection.find({location: { $regex: location, $options: "i" }||  {dateRange: { $regex: dateRange, $options: "i" }}}).toArray();
-        res.send(results);
-     
+
+
+      const results = await AllRoomsCollection.aggregate(pipeline).toArray();
+      res.send(results);
+
     });
 
     app.get("/filter", async (req, res) => {
@@ -80,11 +91,11 @@ async function run() {
         apartmentProperty,
         guestHouseProperty,
       } = req.query;
-    
-     
-    
+
+
+
       const pipeline = [];
-    
+
       if (activePlaceType) {
         pipeline.push({
           $match: {
@@ -105,22 +116,24 @@ async function run() {
           },
         });
       }
-    
+
       if (beds && parseInt(beds) !== 0) {
         pipeline.push({ $match: { beds: parseInt(beds) } });
       }
-    
+
       if (bathrooms && parseInt(bathrooms) !== 0) {
         pipeline.push({ $match: { bedrooms: parseInt(bathrooms) } });
       }
-      if (homeProperty ||apartmentProperty ||guestHouseProperty ) {
-        pipeline.push({ $match:{
-          $or: [
-            { propertyType: homeProperty },
-            { propertyType: apartmentProperty },
-            { propertyType: guestHouseProperty },
-          ],
-        }  });
+      if (homeProperty || apartmentProperty || guestHouseProperty) {
+        pipeline.push({
+          $match: {
+            $or: [
+              { propertyType: homeProperty },
+              { propertyType: apartmentProperty },
+              { propertyType: guestHouseProperty },
+            ],
+          }
+        });
       }
       const filteredData = await AllRoomsCollection.aggregate(pipeline).toArray();
       res.send(filteredData);
